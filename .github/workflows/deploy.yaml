@@ -6,6 +6,9 @@ on:
       - main
 jobs:
   cloud-build:
+    permissions:
+      contents: read
+      packages: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -52,6 +55,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Install Dependencies
+        run: task client:ci
       
       - name: Build Static
         run: task client:build
