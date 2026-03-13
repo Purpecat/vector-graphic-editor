@@ -15,6 +15,7 @@
                         :value="selectedShape?.x ?? ''"
                         :disabled="!selectedShape"
                         @input="onNumberChange('x', $event)"
+                        @wheel.prevent="onWheelChange('x', $event)"
                     />
                     <input
                         class="fieldInput"
@@ -23,6 +24,7 @@
                         :value="selectedShape?.y ?? ''"
                         :disabled="!selectedShape"
                         @input="onNumberChange('y', $event)"
+                        @wheel.prevent="onWheelChange('y', $event)"
                     />
                 </div>
             </div>
@@ -40,6 +42,7 @@
                             :disabled="!selectedShape"
                             min="1"
                             @input="onNumberChange('width', $event)"
+                            @wheel.prevent="onWheelChange('width', $event)"
                         />
                         <input
                             class="fieldInput"
@@ -49,6 +52,7 @@
                             :disabled="!selectedShape"
                             min="1"
                             @input="onNumberChange('height', $event)"
+                            @wheel.prevent="onWheelChange('height', $event)"
                         />
                     </div>
                 </div>
@@ -115,6 +119,7 @@
                         min="0"
                         max="360"
                         @input="onNumberChange('rotation', $event)"
+                        @wheel.prevent="onWheelChange('rotation', $event)"
                     />
                     <div class="spacer" aria-hidden="true" />
                 </div>
@@ -212,6 +217,7 @@
                         min="0"
                         step="0.5"
                         @input="onNumberChange('strokeWidth', $event)"
+                        @wheel.prevent="onWheelChange('strokeWidth', $event)"
                     />
                     <div class="spacer" aria-hidden="true" />
                 </div>
@@ -366,6 +372,15 @@ const layers = computed(() => shapes.value);
 
 const draggedLayerIndex = ref<number | null>(null);
 
+const wheelStepConfig: Record<NumberFieldKey, number> = {
+    x: 1,
+    y: 1,
+    width: 1,
+    height: 1,
+    rotation: 5,
+    strokeWidth: 0.5
+};
+
 type NumberFieldKey =
     | 'x'
     | 'y'
@@ -384,6 +399,33 @@ function onNumberChange(key: NumberFieldKey, event: Event) {
 
     canvasStore.updateShape(selectedShape.value.id, {
         [key]: value,
+    } as Partial<Shape>);
+}
+
+// Обработчик колесика мыши
+function onWheelChange(key: NumberFieldKey, event: WheelEvent) {
+    if (!selectedShape.value) return;
+    
+    event.preventDefault();
+    
+    const target = event.target as HTMLInputElement;
+    const step = wheelStepConfig[key];
+    const delta = event.deltaY > 0 ? -step : step;
+    const currentValue = (selectedShape.value as unknown as Record<string, number>)[key] || 0;
+    let newValue = currentValue + delta;
+
+    if (key === 'width' || key === 'height') {
+        newValue = Math.max(1, newValue);
+    }
+    if (key === 'rotation') {
+        newValue = ((newValue % 360) + 360) % 360;
+    }
+    if (key === 'strokeWidth') {
+        newValue = Math.max(0, newValue);
+    }
+    
+    canvasStore.updateShape(selectedShape.value.id, {
+        [key]: Math.round(newValue * 100) / 100
     } as Partial<Shape>);
 }
 
