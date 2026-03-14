@@ -471,7 +471,6 @@ function onWheelChange(key: NumberFieldKey, event: WheelEvent) {
     
     event.preventDefault();
     
-    const target = event.target as HTMLInputElement;
     const step = wheelStepConfig[key];
     const delta = event.deltaY > 0 ? -step : step;
     const currentValue = (selectedShape.value as unknown as Record<string, number>)[key] || 0;
