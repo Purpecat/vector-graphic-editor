@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import type { Shape } from '@/canvas/types';
 import { shapeRegistry } from '@/canvas/types';
 import { generateId } from '@/canvas/utils/math';
@@ -42,6 +42,10 @@ export const useCanvasStore = defineStore('canvas', () => {
     const redoStack = ref<SceneSnapshot[]>([]);
     const isInteractionActive = ref(false);
     const HISTORY_LIMIT = 50;
+    const MIN_ZOOM = 10;
+    const MAX_ZOOM = 500;
+    const ZOOM_STEP = 10;
+    const zoom = ref(100);
 
     let isContinuousChangeActive = false;
     let continuousChangeTimer: number | null = null;
@@ -147,7 +151,6 @@ export const useCanvasStore = defineStore('canvas', () => {
     ) {
         pushHistory();
 
-        // Генерация уникального имени
         const existingShapesOfType = shapes.value.filter(
             (s) => s.type === type
         );
@@ -239,6 +242,68 @@ export const useCanvasStore = defineStore('canvas', () => {
         selectedId.value = id;
     }
 
+    function setZoom(value: number) {
+        zoom.value = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(value)));
+    }
+
+    function zoomIn() {
+        setZoom(zoom.value + ZOOM_STEP);
+    }
+
+    function zoomOut() {
+        setZoom(zoom.value - ZOOM_STEP);
+    }
+
+    const STORAGE_KEY = 'vector-editor-canvas';
+
+    function saveToLocalStorage() {
+        try {
+            const data = {
+                shapes: shapes.value.map(serializeShape),
+                selectedId: selectedId.value,
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        } catch (e) {
+            console.error('Ошибка сохранения:', e);
+        }
+    }
+
+    function loadFromLocalStorage() {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (!saved) return;
+
+            const data = JSON.parse(saved) as {
+                shapes: SerializedShape[];
+                selectedId: string | null;
+            };
+
+            const restored: Shape[] = data.shapes.map(
+                (plain: SerializedShape) => {
+                    const { type, id, position, ...rest } = plain;
+                    const shape = shapeRegistry.create(type, id, position);
+                    Object.assign(shape, rest);
+                    return shape as Shape;
+                }
+            );
+
+            shapes.value = restored;
+            selectedId.value = data.selectedId || null;
+        } catch (e) {
+            console.error('Ошибка загрузки:', e);
+        }
+    }
+
+    loadFromLocalStorage();
+
+    watch(
+        [shapes, selectedId],
+        () => {
+            saveToLocalStorage();
+        },
+        { deep: true }
+    );
+
     return {
         shapes,
         selectedId,
@@ -252,6 +317,10 @@ export const useCanvasStore = defineStore('canvas', () => {
         redo,
         canUndo,
         canRedo,
+        zoom,
+        setZoom,
+        zoomIn,
+        zoomOut,
         startInteraction,
         endInteraction,
     };
